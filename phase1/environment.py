@@ -49,9 +49,9 @@ from tkinter import ttk
 
 from PIL import Image, ImageTk
 
-IMAGE_PATH = "map.png"
-EDGES_PATH = "edges.json"
-NODES_PATH = "nodes.json"
+IMAGE_PATH = "phase1\\map.png"
+EDGES_PATH = "phase1\\edges.json"
+NODES_PATH = "phase1\\nodes.json"
 
 RANDOM_SEED = 42
 MAX_SCALE = 2
