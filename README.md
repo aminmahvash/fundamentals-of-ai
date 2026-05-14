@@ -4,7 +4,7 @@
 
 KamBiz buys a self-driving car in Manhattan and needs search algorithms (BFS, DLS, IDS, BDS, A*) for pathfinding to turn it into a taxi.
 
-**Environment Designer:** [@m-semi](https://github.com/m-semi)  (Mahdi Semsarzadeh)
+**Environment Designer:** [@m-semi](https://github.com/m-semi)  (Mahdi Semsarzadeh)  
 **Instructor:** Dr. Elham Hatefi  
 **TAs:** Mahdi Semsarzadeh, Sadra Khaleghi, Mohammad Saleh Mahdinejad
 
