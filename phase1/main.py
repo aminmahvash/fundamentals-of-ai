@@ -59,7 +59,7 @@ def ids(env):
     total_expanded = 0
 
     # شروع از عمق 0 تا حداکثر معقول
-    for depth_limit in range(0, 101):
+    for depth_limit in range(0, 51):
         yield ("reset_visuals", None)
 
         # پشته: (state, path, cost, depth)
@@ -92,7 +92,6 @@ def ids(env):
             if visited_at_depth.get(state, float('inf')) < depth:
                 continue
 
-            # گرفتن successorها
             successors = env.get_successors(state)
 
             # بهینه‌سازی: اگر فاصله Manhattan داریم، sort کن برای کشف سریع‌تر
@@ -104,7 +103,7 @@ def ids(env):
             for next_state, edge_cost in successors:
                 new_depth = depth + 1
 
-                # اگر از محدودیت عبور کردیم (check زودهنگام)
+                # اگر از محدودیت عبور کردیم
                 if new_depth > depth_limit:
                     continue
 
@@ -112,7 +111,7 @@ def ids(env):
                 if next_state in visited_at_depth and visited_at_depth[next_state] <= new_depth:
                     continue
 
-                # جلوگیری از چرخه ساده در مسیر فعلی - چک سبک‌تر
+                # جلوگیری از چرخه ساده در مسیر فعلی
                 if next_state in path[-20:]:  # فقط 20 تای آخر را چک کن
                     continue
 
@@ -146,8 +145,7 @@ def ids(env):
             print(f"No more nodes to expand at depth {depth_limit}, terminating early.")
             break
 
-    print(f"\n--- FAILURE: No path found ---")
-    print(f"Total expanded nodes: {total_expanded}")
+    print(f"Expanded nodes: {total_expanded} (no path found)")
     yield ("fail", None)
     return None
 
@@ -339,6 +337,6 @@ if __name__ == "__main__":
     map = Map(
         search_algorithm=ids,
         seed=42,
-        delay=2
+        delay=5
     )
     map.start()
