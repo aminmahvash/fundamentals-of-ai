@@ -44,106 +44,113 @@ def bfs(env):
     return None
 
 
-def dls(env, max_depth=50):
-    start = env.get_start_state()
-    goal = env.get_goal_state()  # فقط برای چاپ
-    print(f"\n=== DLS (max depth = {max_depth}) ===")
-    print(f"Start: {start}, Goal: {goal}")
-
-    stack = [(start, [start], 0, 0, {start})]
-    expanded_count = 0
-
-    yield ("expand", start)
-    expanded_count += 1
-
-    while stack:
-        state, path, cost, depth, path_set = stack.pop()
-
-        if env.is_goal_state(state):
-            print(f"Expanded nodes: {expanded_count}")
-            print(f"Path length (nodes): {len(path)}")
-            print(f"Total path cost: {cost}")
-            yield ("goal", path)
-            return path
-
-        if depth >= max_depth:
-            continue
-
-        for next_state, edge_cost in env.get_successors(state):
-            if next_state in path_set:
-                continue
-            new_path_set = path_set.copy()
-            new_path_set.add(next_state)
-            new_path = path + [next_state]
-            new_cost = cost + edge_cost
-            stack.append((next_state, new_path, new_cost, depth + 1, new_path_set))
-            yield ("frontier", next_state)
-            yield ("expand", next_state)
-            expanded_count += 1
-
-    print(f"Expanded nodes: {expanded_count} (no path found within depth {max_depth})")
-    yield ("fail", None)
-    return None
-
-
+# IDS (Iterative Deepening Search)
 def ids(env):
     start = env.get_start_state()
     goal = env.get_goal_state()
-    print(f"\n=== IDS ===")
+    print(f"\n=== IDS (Iterative Deepening Search) ===")
     print(f"Start: {start}, Goal: {goal}")
 
-    total_expanded = 0
-    depth_limit = 0
+    if env.is_goal_state(start):
+        print(f"Start is already the goal!")
+        yield ("goal", [start])
+        return [start]
 
-    while depth_limit <= 100:
+    total_expanded = 0
+
+    # شروع از عمق 0 تا حداکثر معقول
+    for depth_limit in range(0, 101):
         yield ("reset_visuals", None)
 
-        stack = [(start, [start], 0, 0, {start})]
-        exp_this = 0
+        # پشته: (state, path, cost, depth)
+        stack = [(start, [start], 0, 0)]
+
+        # بهینه‌سازی: نگهداری کمترین عمق دیده‌شده برای هر state
+        visited_at_depth = {start: 0}
+
         result_path = None
         result_cost = None
+        expanded_this = 0
 
+        # اولین expand برای start (فقط یکبار در هر iteration)
         yield ("expand", start)
-        exp_this += 1
+        expanded_this += 1
 
         while stack:
-            state, path, cost, depth, path_set = stack.pop()
+            state, path, cost, depth = stack.pop()
 
             if env.is_goal_state(state):
                 result_path = path
                 result_cost = cost
                 break
 
+            # اگر از محدودیت عمق گذشتیم، رد کن
             if depth >= depth_limit:
                 continue
 
-            for next_state, edge_cost in env.get_successors(state):
-                if next_state in path_set:
+            # فقط اگر در عمق بهتری هستیم ادامه بده
+            if visited_at_depth.get(state, float('inf')) < depth:
+                continue
+
+            # گرفتن successorها
+            successors = env.get_successors(state)
+
+            # بهینه‌سازی: اگر فاصله Manhattan داریم، sort کن برای کشف سریع‌تر
+            def manhattan_dist(s):
+                return abs(s[0] - goal[0]) + abs(s[1] - goal[1])
+
+            successors = sorted(successors, key=lambda x: manhattan_dist(x[0]), reverse=True)
+
+            for next_state, edge_cost in successors:
+                new_depth = depth + 1
+
+                # اگر از محدودیت عبور کردیم (check زودهنگام)
+                if new_depth > depth_limit:
                     continue
-                new_path_set = path_set.copy()
-                new_path_set.add(next_state)
+
+                # بهینه‌سازی کلیدی: اگر این state را قبلاً در عمق مساوی یا کمتر دیده بودیم
+                if next_state in visited_at_depth and visited_at_depth[next_state] <= new_depth:
+                    continue
+
+                # جلوگیری از چرخه ساده در مسیر فعلی - چک سبک‌تر
+                if next_state in path[-20:]:  # فقط 20 تای آخر را چک کن
+                    continue
+
                 new_path = path + [next_state]
                 new_cost = cost + edge_cost
-                stack.append((next_state, new_path, new_cost, depth + 1, new_path_set))
+
+                # ذخیره عمق بازدید
+                visited_at_depth[next_state] = new_depth
+
+                stack.append((next_state, new_path, new_cost, new_depth))
+
+                # visualization
                 yield ("frontier", next_state)
                 yield ("expand", next_state)
-                exp_this += 1
+                expanded_this += 1
 
-        total_expanded += exp_this
+        total_expanded += expanded_this
 
+        # اگر مسیر پیدا شد
         if result_path is not None:
-            print(f"Goal found at depth {depth_limit}")
+            print(f"\n--- SUCCESS ---")
+            print(f"Goal found at depth limit: {depth_limit}")
             print(f"Total expanded nodes (all depths): {total_expanded}")
             print(f"Path length (nodes): {len(result_path)}")
             print(f"Total path cost: {result_cost}")
             yield ("goal", result_path)
             return result_path
 
-        depth_limit += 1
+        # بهینه‌سازی: اگر در این عمق هیچ نودی اکسپند نشد، یعنی مرده‌ایم
+        if expanded_this == 0 and depth_limit > 0:
+            print(f"No more nodes to expand at depth {depth_limit}, terminating early.")
+            break
 
-    print(f"No path found up to depth {depth_limit}")
+    print(f"\n--- FAILURE: No path found ---")
+    print(f"Total expanded nodes: {total_expanded}")
     yield ("fail", None)
     return None
+
 
 # BDS (Bidirectional Search)
 def bds(env):
@@ -245,7 +252,7 @@ def astar(env):
         current = heapq.heappop(open_set)[1]
 
         if current == goal:
-            # reconstruct path and cost
+            # path and cost
             path = []
             c = current
             while c in came_from:
