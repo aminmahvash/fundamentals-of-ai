@@ -35,7 +35,7 @@ def bfs(env):
                 new_cost = cost + edge_cost
 
                 if env.is_goal_state(next_state):
-                    print(f"Expanded nodes: {expanded_count}")  # فقط current state اکسپند شده
+                    print(f"Expanded nodes: {expanded_count}")
                     print(f"Path length: {len(new_path)}")
                     print(f"Path cost: {new_cost}")
                     yield ("frontier", next_state)
@@ -52,7 +52,7 @@ def bfs(env):
 
 
 # IDS (Iterative Deepening Search)
-def ids(env):
+def dls(env):
     start = env.get_start_state()
     goal = env.get_goal_state()
     print(f"\n=== IDS (Iterative Deepening Search) ===")
@@ -107,7 +107,7 @@ def ids(env):
                 if new_depth > depth_limit:
                     continue
 
-                # بهینه‌سازی کلیدی: اگر این state را قبلاً در عمق مساوی یا کمتر دیده بودیم
+                # اگر این state را قبلاً در عمق مساوی یا کمتر دیده بودیم
                 if next_state in visited_at_depth and visited_at_depth[next_state] <= new_depth:
                     continue
 
@@ -146,7 +146,7 @@ def ids(env):
     return None
 
 
-# BDS (Breadth-First Search)
+# BDS (Bidirectional Search)
 def bds(env):
     start = env.get_start_state()
     goal = env.get_goal_state()
@@ -270,6 +270,9 @@ def astar(env):
     while open_set:
         current_f, current = heapq.heappop(open_set)
 
+        if current_f > f_score.get(current, float('inf')):
+            continue
+
         if current == goal:
             path = []
             c = current
@@ -325,6 +328,9 @@ def astar_bonus(env):
     while open_set:
         current_f, current = heapq.heappop(open_set)
 
+        if current_f > f_score.get(current, float('inf')):
+            continue
+
         if current == goal:
             path = []
             c = current
@@ -359,7 +365,7 @@ def astar_bonus(env):
 
 if __name__ == "__main__":
     map = Map(
-        search_algorithm=bfs,
+        search_algorithm=astar,
         seed=42,
         delay=5
     )
