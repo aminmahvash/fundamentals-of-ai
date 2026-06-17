@@ -81,3 +81,4 @@ def is_connected_layout(assignment: dict[str, Rect]) -> bool:
                 seen.add(v)
                 q.append(v)
     return len(seen) == len(g)
+

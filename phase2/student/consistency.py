@@ -1,26 +1,63 @@
-from __future__ import annotations
-from phase2.planforge.core.models import CSPProblem, Assignment, Rect
-
-# -----------------------------------------------------------------------------
-# STUDENT TODO FILE
-# Required function:
-#   - is_consistent
-# -----------------------------------------------------------------------------
+from planforge.core.geometry import inside_boundary, overlaps
+from planforge.core.constraints import constraint_is_satisfied
 
 
-def is_consistent(problem: CSPProblem, assignment: Assignment, variable: str, value: Rect) -> bool:
+# ─────────────────────────────────────────────
+# تابع: is_consistent
+# بررسی می‌کند که آیا assign کردن value به variable
+# با assignment فعلی سازگار است یا نه
+# ─────────────────────────────────────────────
+def is_consistent(problem, assignment, variable, value) -> bool:
     """
-    Return True iff assigning `value` to `variable` does not violate any hard
-    constraint with the current partial assignment.
+    True برمی‌گرداند اگر مقدار value برای variable
+    با قیود سخت مسئله و assignment فعلی سازگار باشد.
 
-    You should check at least:
-      - the rectangle is inside the apartment boundary
-      - the room area is inside its allowed range
-      - it does not overlap already assigned rooms
-      - all relevant unary/binary constraints that are currently checkable
-
-    Useful helpers are available in:
-      - planforge.core.geometry
-      - planforge.core.constraints
+    بررسی‌های انجام شده:
+    1. مستطیل value باید داخل مرز خانه باشد
+    2. مساحت اتاق باید در بازه مجاز باشد
+    3. value نباید با هیچ اتاق از قبل assign شده overlap داشته باشد
+    4. قیود صریح (explicit constraints) نباید نقض شوند
     """
-    raise NotImplementedError('TODO: implement is_consistent() in student/consistency.py')
+
+    # ─────────────────────────────────────────
+    # بررسی ۱: مستطیل باید داخل مرز خانه باشد
+    # ─────────────────────────────────────────
+    if not inside_boundary(value, problem.width, problem.height):
+        return False
+
+    # ─────────────────────────────────────────
+    # بررسی ۲: مساحت اتاق باید در بازه مجاز باشد
+    # ─────────────────────────────────────────
+    room_spec = problem.room_specs[variable]
+    if not (room_spec.min_area <= value.area <= room_spec.max_area):
+        return False
+
+    # ─────────────────────────────────────────
+    # بررسی ۳: overlap با اتاق‌های قبلاً assign شده
+    # ─────────────────────────────────────────
+    for assigned_var, assigned_value in assignment.items():
+        if assigned_var == variable:
+            continue
+        if overlaps(value, assigned_value):
+            return False
+
+    # ─────────────────────────────────────────
+    # بررسی ۴: قیود صریح مسئله
+    # constraint_is_satisfied اگر هنوز همه متغیرهای یک قید
+    # assign نشده باشند، True برمی‌گرداند (قید هنوز قابل بررسی نیست)
+    # بنابراین برای assignment‌های جزئی مناسب است
+    # ─────────────────────────────────────────
+    # یک assignment موقت می‌سازیم که variable جدید هم داخلش باشد
+    temp_assignment = dict(assignment)
+    temp_assignment[variable] = value
+
+    for constraint in problem.constraints:
+        # فقط قیودی که این variable در آن‌ها شرکت دارد را بررسی می‌کنیم
+        if variable not in constraint.variables:
+            continue
+
+        # اگر قید نقض شده بود False برمی‌گردانیم
+        if not constraint_is_satisfied(problem, constraint, temp_assignment):
+            return False
+
+    return True

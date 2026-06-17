@@ -1,52 +1,81 @@
-from __future__ import annotations
-from phase2.planforge.core.models import CSPProblem, Assignment, Rect
-from phase2.planforge.core.engine import SolverContext
-
-# -----------------------------------------------------------------------------
-# STUDENT TODO FILE
-# You MUST implement recursive backtracking here.
-#
-# The framework passes a SolverContext named `ctx` into solve(). Use it to record
-# metadata and best solutions:
-#   ctx.on_node()                 # once at the beginning of each backtrack node
-#   ctx.on_assignment_tried()      # before trying a value
-#   ctx.on_consistency_check()     # before/around is_consistent
-#   ctx.on_prune(before, after)    # after forward checking / AC-3 pruning
-#   ctx.on_solution(assignment)    # when assignment is complete
-#   ctx.on_backtrack()             # when returning from a dead end / node
-#   ctx.should_stop                # respect framework limits
-# -----------------------------------------------------------------------------
+from student.consistency import is_consistent
+from student.heuristics import select_unassigned_variable, order_domain_values, _quick_consistent
+from student.inference import ac3, forward_check
 
 
-def solve(problem: CSPProblem, ctx: SolverContext) -> Assignment | None:
-    """
-    Entry point called by the framework.
-
-    Required behavior:
-      1) copy domains from ctx.copy_domains()
-      2) optionally run ac3(problem, domains)
-      3) call your recursive backtrack(...)
-      4) return ctx.best_assignment, or None if no solution was found
-    """
-    raise NotImplementedError('TODO: implement solve() in student/solver.py')
+def is_complete(problem, assignment):
+    return all(v in assignment for v in problem.variables)
 
 
-def backtrack(problem: CSPProblem, assignment: Assignment, domains: dict[str, list[Rect]], ctx: SolverContext) -> None:
-    """
-    Recursive backtracking search.
+def backtrack(problem, assignment, domains, ctx):
+    ctx.on_node()
 
-    This function should explore assignments and call ctx.on_solution(assignment)
-    whenever a complete assignment is reached. ctx stores the best valid solution
-    according to score_assignment().
+    if ctx.should_stop:
+        return
 
-    For the visual solver mode in the app, call ctx.on_select_variable(...),
-    ctx.on_assign(...), and ctx.on_unassign(...) at the appropriate points.
-    These calls do not change correctness; they only let the app animate the
-    exact search path produced by your algorithm.
-    """
-    raise NotImplementedError('TODO: implement backtrack() in student/solver.py')
+    if is_complete(problem, assignment):
+        ctx.on_solution(assignment)
+        return
+
+    var = select_unassigned_variable(problem, assignment, domains)
+    ctx.on_select_variable(var, assignment)
+
+    unassigned_others = [v for v in problem.variables
+                         if v not in assignment and v != var]
+
+    lcv_values = order_domain_values(problem, var, assignment, domains)
+
+    def _lcv_eliminated(value):
+        temp = dict(assignment)
+        temp[var] = value
+        return sum(
+            1
+            for other in unassigned_others
+            for other_val in domains[other]
+            if not _quick_consistent(problem, temp, other, other_val)
+        )
+
+    ordered_values = sorted(
+        lcv_values,
+        key=lambda rect: (_lcv_eliminated(rect) // 100, -rect.area, rect.x, rect.y),
+    )
+
+    for value in ordered_values:
+        if ctx.should_stop:
+            return
+
+        ctx.on_assignment_tried()
+        ctx.on_consistency_check()
+
+        if is_consistent(problem, assignment, var, value):
+            assignment[var] = value
+            ctx.on_assign(var, value, assignment)
+
+            before_fc = ctx.domain_size(domains)
+            new_domains = forward_check(problem, var, value, assignment, domains)
+            if new_domains is not None:
+                after_fc = ctx.domain_size(new_domains)
+                ctx.on_prune(before_fc, after_fc)
+                ctx.on_prune(count=before_fc - after_fc)
+                backtrack(problem, assignment, new_domains, ctx)
+
+            del assignment[var]
+            ctx.on_unassign(var, assignment)
+            ctx.on_backtrack()
 
 
-def is_complete(problem: CSPProblem, assignment: Assignment) -> bool:
-    """Return True iff every variable has a value."""
-    raise NotImplementedError('TODO: implement is_complete() in student/solver.py')
+def solve(problem, ctx):
+    domains = ctx.copy_domains()
+    before_ac3 = ctx.domain_size(domains)
+
+    reduced = ac3(problem, domains)
+    if reduced is None:
+        return None
+
+    after_ac3 = ctx.domain_size(reduced)
+    ctx.on_prune(before_ac3, after_ac3)
+    ctx.on_prune(count=before_ac3 - after_ac3)
+    domains = reduced
+
+    backtrack(problem, {}, domains, ctx)
+    return ctx.best_assignment

@@ -38,3 +38,4 @@ def constraint_is_satisfied(problem: CSPProblem, c: Constraint, assignment: Assi
     if t == 'larger_than':
         return a.area > b.area
     raise ValueError(f'Unknown constraint type: {t}')
+
